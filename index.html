@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Pantone Finder" />
+<meta name="theme-color" content="#15161A" />
+<title>Pantone Finder</title>
+<style>
+  :root {
+    --paper: #F6F3EC;
+    --surface: #FFFFFF;
+    --border: #E3DDCE;
+    --ink: #17181A;
+    --muted: #6B6558;
+    --accent: #2B4C7E;
+    --accent-ink: #1F3B63;
+    --danger: #B23A2E;
+    --ok: #3F7D58;
+    --c-cyan: #00AEEF;
+    --c-magenta: #EC1E79;
+    --c-yellow: #F5C400;
+    --c-key: #17181A;
+    --radius: 14px;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--paper); color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  button, input, select, textarea { font-family: inherit; }
+  #app { min-height: 100%; display: flex; flex-direction: column; }
+
+  .sticky-header { position: sticky; top: 0; z-index: 20; background: var(--paper); }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(var(--safe-top) + 10px) 14px 10px;
+    background: var(--ink); color: #fff;
+  }
+  .wordmark {
+    font-family: var(--mono); font-weight: 700; font-size: 17px;
+    letter-spacing: 0.02em; display: flex; align-items: center; gap: 8px;
+  }
+  .wordmark .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--c-cyan), var(--c-magenta) 50%, var(--c-yellow));
+    display: inline-block;
+  }
+  .icon-btn {
+    background: transparent; border: none; color: #fff;
+    font-size: 22px; width: 44px; height: 44px; line-height: 44px;
+    border-radius: 10px; cursor: pointer;
+  }
+  .icon-btn:active { background: rgba(255,255,255,0.15); }
+
+  .search-wrap { padding: 12px 14px 6px; border-bottom: 1px solid var(--border); }
+
+  .global-batch-wrap {
+    display: flex; align-items: center; gap: 6px; padding: 0 14px 10px; flex-wrap: wrap;
+  }
+  .global-batch-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  #globalBatchAmount { width: 70px; padding: 8px 8px; font-size: 14px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); outline: none; }
+  #globalBatchAmount:focus { border-color: var(--accent); }
+  .global-batch-wrap .btn.secondary { padding: 8px 12px; font-size: 13px; }
+  #searchInput {
+    width: 100%; padding: 14px 16px; font-size: 20px;
+    border: 1.5px solid var(--border); border-radius: 999px;
+    background: var(--surface); color: var(--ink);
+    outline: none;
+  }
+  #searchInput:focus { border-color: var(--accent); }
+
+  main#listView { flex: 1; padding: 6px 14px 100px; overflow-y: auto; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  #resultsCount { padding: 6px 4px 10px; }
+
+  .results-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .result-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px;
+    cursor: pointer;
+  }
+  .result-card:active { background: #FBFAF6; }
+  .mix-chip {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    overflow: hidden; display: flex; border: 1px solid rgba(0,0,0,0.06);
+  }
+  .mix-chip > span { display: block; height: 100%; }
+  .mix-chip.empty { background: repeating-linear-gradient(45deg, #eee, #eee 4px, #f6f6f6 4px, #f6f6f6 8px); }
+  .result-text { flex: 1; min-width: 0; }
+  .result-code { font-family: var(--mono); font-weight: 700; font-size: 16px; }
+  .result-summary {
+    font-size: 13px; color: var(--muted); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .chevron { color: var(--muted); font-size: 20px; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .big { font-size: 40px; margin-bottom: 8px; }
+
+  .fab {
+    position: fixed; right: 20px; bottom: calc(var(--safe-bottom) + 22px);
+    width: 58px; height: 58px; border-radius: 50%;
+    background: var(--accent); color: #fff; border: none;
+    font-size: 28px; box-shadow: 0 6px 18px rgba(43,76,126,0.4);
+    cursor: pointer; z-index: 15;
+  }
+  .fab:active { background: var(--accent-ink); }
+
+  /* Sheets & modals */
+  .sheet {
+    position: fixed; inset: 0; background: var(--paper); z-index: 40;
+    display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.25s ease;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(var(--safe-top) + 10px) 14px 12px;
+    background: var(--ink); color: #fff; position: sticky; top: 0;
+  }
+  .sheet-header h2 { margin: 0; font-size: 18px; font-family: var(--mono); }
+  .sheet-body { flex: 1; overflow-y: auto; padding: 16px 16px calc(var(--safe-bottom) + 30px); }
+  .link-btn {
+    background: transparent; border: none; color: #fff; font-size: 15px;
+    padding: 8px 6px; cursor: pointer;
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 50;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-card {
+    background: var(--surface); width: 100%; max-width: 480px;
+    border-radius: 18px 18px 0 0; max-height: 82vh; display: flex; flex-direction: column;
+    padding-bottom: var(--safe-bottom);
+  }
+  @media (min-width: 640px) {
+    .modal-overlay { align-items: center; }
+    .modal-card { border-radius: 18px; max-height: 80vh; }
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; border-bottom: 1px solid var(--border);
+  }
+  .modal-head h3 { margin: 0; font-size: 17px; }
+  .modal-body { padding: 14px 18px; overflow-y: auto; }
+
+  /* Detail view */
+  .swatch-row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
+  .swatch { width: 84px; height: 84px; border-radius: 12px; border: 1px solid var(--border); flex-shrink: 0; }
+  .swatch.empty { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); text-align: center; background: repeating-linear-gradient(45deg, #eee, #eee 4px, #f6f6f6 4px, #f6f6f6 8px); }
+  .detail-code { font-family: var(--mono); font-weight: 700; font-size: 26px; }
+  .batch-summary { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .mix-bar { display: flex; width: 100%; height: 26px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin: 10px 0 4px; }
+  .mix-bar > span { height: 100%; }
+  .mix-bar.empty { background: repeating-linear-gradient(45deg, #eee, #eee 4px, #f6f6f6 4px, #f6f6f6 8px); }
+
+  table.formula-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.formula-table th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 8px 6px 0; border-bottom: 1px solid var(--border); }
+  table.formula-table td { padding: 8px 8px 8px 0; border-bottom: 1px solid #F0EBDF; font-size: 15px; }
+  table.formula-table td.mono { font-family: var(--mono); }
+  .dot-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .lib-color-picker {
+    width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border);
+    padding: 0; margin-right: 8px; vertical-align: middle; cursor: pointer;
+    background: none; -webkit-appearance: none; appearance: none; overflow: hidden; flex-shrink: 0;
+  }
+  .lib-color-picker::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+  .lib-color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
+  .lib-color-picker::-moz-color-swatch { border: none; border-radius: 50%; }
+  .unbalanced { color: var(--danger); font-weight: 700; }
+
+  .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 18px 0 6px; }
+  .notes-block { white-space: pre-wrap; font-size: 15px; line-height: 1.4; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 22px; }
+  .btn {
+    flex: 1; padding: 13px; border-radius: 10px; border: none; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:active { background: var(--accent-ink); }
+  .btn.danger { background: #FBEAE7; color: var(--danger); }
+  .btn.danger:active { background: #F5D9D4; }
+  .btn.secondary { background: #EDEAE1; color: var(--ink); }
+  .btn.secondary:active { background: #E2DED2; }
+  .btn:disabled { opacity: 0.5; }
+
+  /* Form */
+  label.field-label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 16px 0 6px; }
+  label.field-label:first-child { margin-top: 0; }
+  input[type=text], input[type=number], textarea, .form-input {
+    width: 100%; padding: 12px 14px; font-size: 16px;
+    border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink);
+    outline: none;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 70px; font-family: var(--sans); }
+
+  .unit-toggle { display: inline-flex; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .unit-toggle button { padding: 12px 18px; border: none; background: var(--surface); font-size: 15px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .unit-toggle button.active { background: var(--accent); color: #fff; }
+  .measure-row { display: flex; gap: 10px; align-items: center; }
+  .measure-row input { flex: 1; }
+
+  .formula-row { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface); }
+  .formula-row-top { display: flex; gap: 8px; align-items: center; }
+  .formula-row-top .combo-wrap { flex: 1; }
+  .formula-row-top input[type=number] { width: 84px; }
+  .row-weight {
+    font-family: var(--mono); font-size: 14px; color: var(--accent-ink); font-weight: 600;
+    min-width: 72px; text-align: right; flex-shrink: 0;
+  }
+  .row-weight.empty { color: var(--muted); font-weight: 400; }
+  .formula-row-meta { display: flex; justify-content: flex-end; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .formula-row-meta .cum { font-family: var(--mono); }
+  .formula-row-meta .cum.unbalanced { color: var(--danger); font-weight: 700; }
+
+  .combo-wrap { position: relative; }
+  .combo-list {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    max-height: 180px; overflow-y: auto; z-index: 30; box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  }
+  .combo-list.hidden { display: none; }
+  .combo-item { padding: 11px 14px; font-size: 15px; cursor: pointer; border-bottom: 1px solid #F2EEE3; }
+  .combo-item:last-child { border-bottom: none; }
+  .combo-item:active { background: #F6F3EC; }
+  .combo-item.add-new { color: var(--accent); font-weight: 600; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Library modal */
+  .lib-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F0EBDF; gap: 8px; flex-wrap: wrap; }
+  .lib-row:last-child { border-bottom: none; }
+  .lib-name { font-size: 15px; display: flex; align-items: center; }
+  .lib-actions { display: flex; gap: 6px; align-items: center; }
+  .cost-line { margin-top: 10px; font-size: 14px; }
+  .lib-price-field { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+  .lib-price-field span.pfx { color: var(--muted); }
+  .lib-price-field input { width: 64px; padding: 6px 6px; font-size: 13px; border: 1.5px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); outline: none; text-align: right; }
+  .lib-price-field input:focus { border-color: var(--accent); }
+  .icon-sm-btn { background: #EDEAE1; border: none; border-radius: 8px; width: 34px; height: 34px; font-size: 15px; cursor: pointer; }
+  .icon-sm-btn.danger { background: #FBEAE7; color: var(--danger); }
+  .lib-add-row { display: flex; gap: 8px; margin-top: 12px; }
+  .lib-add-row input { flex: 1; }
+
+  /* Ink stock */
+  .stock-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F0EBDF; gap: 10px; }
+  .stock-row:last-child { border-bottom: none; }
+  .stock-name { display: flex; align-items: center; font-size: 15px; flex: 1; min-width: 0; }
+  .stock-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .stock-controls input[type=number] { width: 76px; padding: 8px 10px; font-size: 14px; }
+  .stock-unit-toggle { display: inline-flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .stock-unit-toggle button { padding: 8px 10px; border: none; background: var(--surface); font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .stock-unit-toggle button.active { background: var(--accent); color: #fff; }
+
+  .stock-plan-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .stock-plan-table th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 8px 6px 0; border-bottom: 1px solid var(--border); }
+  .stock-plan-table td { padding: 8px 8px 8px 0; border-bottom: 1px solid #F0EBDF; font-size: 14px; }
+  .stock-plan-table td.mono { font-family: var(--mono); }
+  .from-stock { color: var(--ok); font-weight: 700; }
+  .mix-fresh { color: var(--accent-ink); font-weight: 700; }
+  .stock-empty-note { color: var(--muted); font-size: 13px; }
+
+  .leftover-list { margin-top: 10px; font-size: 14px; }
+  .leftover-list .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .leftover-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #EFF3EE; border: 1px solid #D8E4D6; border-radius: 999px;
+    padding: 6px 12px; font-size: 13px;
+  }
+
+  .stock-hint { font-size: 12px; color: var(--ok); margin-top: 4px; }
+  .stock-hint.none { color: var(--muted); }
+
+  /* Reformulation */
+  .refo-summary { background:#EFF5F0; border:1px solid #C6DECA; border-radius:10px; padding:10px 14px; font-size:14px; margin-top:6px; line-height:1.4; }
+  .refo-saving { color:var(--ok); font-weight:700; }
+  .refo-sub-label { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:14px 0 4px; }
+  .refo-empty { margin-top:6px; }
+  .stock-group-header { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:10px 0 4px; border-bottom:1px solid var(--border); margin-bottom:2px; }
+  .stock-badge { font-size:10px; font-weight:700; color:var(--ok); margin-left:6px; vertical-align:middle; }
+
+  /* Recycle-into-batch tool */
+  .subst-tool { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface); margin-top: 6px; }
+  tr.subst-changed { background: #FFF7E8; }
+  tr.subst-changed td:first-child { font-weight: 700; }
+
+  .menu-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 4px; font-size: 16px; border-bottom: 1px solid #F0EBDF;
+    cursor: pointer; background: none; border-left: none; border-right: none; border-top: none; width: 100%; text-align: left; color: var(--ink);
+  }
+  .menu-item:last-child { border-bottom: none; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--safe-bottom) + 24px); transform: translate(-50%, 0);
+    background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 14px;
+    z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Print label — fixed 3.9in x 2.4in stock, one label per print.
+     Printed from a dedicated popup window (see printLabel()) so the
+     rest of the app never enters the print document at all. */
+  .print-label {
+    width: 3.9in; height: 2.4in;
+    padding: 0.16in 0.22in 0.13in 0.22in;
+    font-family: var(--sans);
+    color: var(--ink);
+    display: flex; flex-direction: column; justify-content: space-between;
+    box-sizing: border-box;
+  }
+  .print-label .pl-head { display: flex; flex-direction: column; gap: 1px; }
+  .print-label .pl-formula { display: flex; flex-direction: column; }
+  .print-label .pl-eyebrow {
+    font-size: 6.5pt; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  .print-label .pl-code {
+    font-family: var(--mono); font-size: 21pt; font-weight: 800;
+    letter-spacing: -.01em; line-height: 1.05;
+  }
+  .print-label .pl-batch-note { font-size: 8.5pt; color: var(--muted); margin-top: 1px; }
+  .print-label .pl-formula-head {
+    display: flex; align-items: baseline; gap: 6px;
+    font-size: 6.5pt; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    border-top: 1px solid var(--border); padding-top: 0.07in; margin-bottom: 3px;
+  }
+  .print-label .pl-formula-head .pl-num { text-align: right; }
+  .print-label .pl-formula-head span:first-child { flex: 1; }
+  .print-label .pl-formula-head .pl-num-pct { width: .62in; }
+  .print-label .pl-formula-head .pl-num-weight { width: .85in; }
+  .print-label .pl-row {
+    display: flex; align-items: baseline; font-size: 10.5pt; padding: 1.5px 0;
+  }
+  .print-label .pl-row .pl-comp { flex: 1; font-weight: 500; }
+  .print-label .pl-row .pl-pct { width: .62in; text-align: right; font-family: var(--mono); font-weight: 700; }
+  .print-label .pl-row .pl-weight { width: .85in; text-align: right; font-family: var(--mono); font-weight: 600; color: var(--muted); }
+  .print-label .pl-row .pl-weight.pl-wide { width: auto; flex: 0 0 auto; margin-left: auto; }
+  .print-label .pl-row .pl-weight .pl-unit { font-size: 8pt; margin-left: 2px; }
+  .print-label .pl-footer {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid var(--border); padding-top: 0.06in; margin-top: 0.05in;
+  }
+  .print-label .pl-hex, .print-label .pl-printed {
+    font-family: var(--mono); font-size: 7.5pt; color: #b3ada0; letter-spacing: .02em;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="sticky-header">
+    <header class="topbar">
+      <button class="icon-btn" id="menuBtn" aria-label="Menu">&#9776;</button>
+      <div class="wordmark"><span class="dot"></span>Pantone Finder</div>
+      <button class="icon-btn" id="addBtn" aria-label="New color">&#65291;</button>
+    </header>
+
+    <div class="search-wrap">
+      <input id="searchInput" type="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Type a code&hellip; e.g. 355C" />
+    </div>
+
+    <div class="global-batch-wrap">
+      <span class="global-batch-label">Batch size for all:</span>
+      <input type="number" id="globalBatchAmount" class="form-input" placeholder="1" step="0.001" min="0" inputmode="decimal">
+      <div class="stock-unit-toggle" id="globalBatchUnitToggle">
+        <button type="button" data-unit="lb" class="active">lb</button>
+        <button type="button" data-unit="g">g</button>
+      </div>
+      <button class="btn secondary" id="globalBatchApplyBtn">Apply to All</button>
+    </div>
+  </div>
+
+  <main id="listView">
+    <div id="resultsCount" class="muted small"></div>
+    <ul id="resultsList" class="results-list"></ul>
+    <div id="emptyState" class="empty-state hidden">
+      <div class="big">&#127912;</div>
+      <div>No colors yet. Tap <strong>+</strong> to add your first formula.</div>
+    </div>
+  </main>
+
+  <button class="fab" id="fabBtn" aria-label="New color">&#65291;</button>
+</div>
+
+<!-- Detail sheet -->
+<div class="sheet" id="detailSheet">
+  <div class="sheet-header">
+    <button class="link-btn" id="detailCloseBtn">Close</button>
+    <h2 id="detailHeaderCode">&nbsp;</h2>
+    <button class="link-btn" id="detailEditBtn">Edit</button>
+  </div>
+  <div class="sheet-body" id="detailBody"></div>
+</div>
+
+<!-- New/Edit form sheet -->
+<div class="sheet" id="formSheet">
+  <div class="sheet-header">
+    <button class="link-btn" id="formCancelBtn">Cancel</button>
+    <h2 id="formHeaderTitle">New Color</h2>
+    <button class="link-btn" id="formSaveBtn">Save</button>
+  </div>
+  <div class="sheet-body" id="formBody">
+    <label class="field-label">Pantone code</label>
+    <input type="text" id="fCode" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="e.g. 355C" />
+
+    <label class="field-label">Hex color (optional, e.g. #1B4B8A)</label>
+    <input type="text" id="fHex" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="#1B4B8A" />
+
+    <label class="field-label">Measuring by</label>
+    <div class="measure-row">
+      <input type="number" id="fAmount" inputmode="decimal" placeholder="1" />
+      <div class="unit-toggle" id="fUnitToggle">
+        <button type="button" data-unit="lb" class="active">lb</button>
+        <button type="button" data-unit="g">g</button>
+      </div>
+    </div>
+
+    <label class="field-label">Mixing formula (2&ndash;4 colors)</label>
+    <div id="formulaRows"></div>
+    <div class="hint">Pick from your library, or type a new color &mdash; it's added to the library automatically when you save.</div>
+
+    <label class="field-label">Notes</label>
+    <textarea id="fNotes" rows="4" placeholder="Anything worth remembering about this mix&hellip;"></textarea>
+  </div>
+</div>
+
+<!-- Library modal -->
+<div class="modal-overlay hidden" id="libraryOverlay">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Color Library</h3>
+      <button class="link-btn" style="color:var(--ink)" id="libraryCloseBtn">Done</button>
+    </div>
+    <div class="modal-body">
+      <div class="hint" style="margin-bottom:10px">Rename here updates every saved formula that uses that color. Delete just removes it from future dropdowns.</div>
+      <div id="libraryList"></div>
+      <div class="lib-add-row">
+        <input type="text" id="libNewName" placeholder="Add a new color name" />
+        <button class="btn primary" style="flex:0 0 auto; padding:12px 18px;" id="libAddBtn">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ink stock modal -->
+<div class="modal-overlay hidden" id="stockOverlay">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Ink Stock on Hand</h3>
+      <button class="link-btn" style="color:var(--ink)" id="stockCloseBtn">Done</button>
+    </div>
+    <div class="modal-body">
+      <div class="hint" style="margin-bottom:10px">How much of each color you've got sitting around. When you open a formula, it'll tell you how much to pull from stock before mixing anything fresh.</div>
+      <input type="text" id="stockSearchInput" class="form-input" placeholder="Search inks and colors&hellip;" style="margin-bottom:12px" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div id="stockList"></div>
+      <div id="stockEmptyNote" class="stock-empty-note hidden">Add colors to your library first (via Manage Color Library), then come back here to log how much you have on hand.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Menu -->
+<div class="modal-overlay hidden" id="menuOverlay">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>Menu</h3>
+      <button class="link-btn" style="color:var(--ink)" id="menuCloseBtn">Close</button>
+    </div>
+    <div class="modal-body">
+      <button class="menu-item" id="menuLibraryBtn">&#127912; Manage Color Library</button>
+      <button class="menu-item" id="menuStockBtn">&#128230; Manage Ink Stock</button>
+      <button class="menu-item" id="menuExportBtn">&#8681; Export CSV</button>
+      <button class="menu-item" id="menuImportBtn">&#8679; Import CSV</button>
+      <button class="menu-item" id="menuAboutBtn">&#8505; About</button>
+      <button class="menu-item" id="menuResetBtn" style="color:#B3261E">&#128465; Reset All Data</button>
+      <input type="file" id="importFileInput" accept=".csv" style="display:none">
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+</div>
+<script>
+/* ============================================================
+   Core logic (pure, unit-tested)
+   ============================================================ */
+(function(g){"use strict";
+var G=453.592,N=4;
+function nC(s){return(s||"").trim().toUpperCase();}
+function nH(s){s=(s||"").trim();if(!s)return"";if(s[0]!=="#")s="#"+s;return s.toUpperCase();}
+function hV(s){s=(s||"").trim();if(!s)return true;if(s[0]!=="#")s="#"+s;if(s.length!==7)return false;return/^#[0-9A-Fa-f]{6}$/.test(s);}
+function pF(s){if(s===null||s===undefined)return null;s=String(s).trim();if(!s)return null;var n=Number(s);return isNaN(n)?null:n;}
+function cvt(v,f,t){if(v===null||v===undefined||f===t)return v;if(f==="lb"&&t==="g")return v*G;if(f==="g"&&t==="lb")return v/G;return v;}
+function rnd(n,d){var f=Math.pow(10,d);return Math.round((n+Number.EPSILON)*f)/f;}
+function cR(comps,amt,unit){
+  var u=unit==="g"?"g":"lb";
+  var act=(comps||[]).filter(function(c){return c&&c.name&&String(c.name).trim();});
+  var run=0;
+  var rows=act.map(function(c,i){
+    var p=Number(c.pct)||0;run+=p;
+    var w=(amt!==null&&amt!==undefined&&!isNaN(amt))?rnd(amt*(p/100),2):null;
+    return{name:c.name,pct:rnd(p,2),cumulative:rnd(run,2),weight:w,unit:u,isLast:i===act.length-1};
+  });
+  var tot=rows.length?rows[rows.length-1].cumulative:0;
+  return{rows:rows,total:tot,unbalanced:rows.length>0&&Math.abs(tot-100)>0.05};
+}
+function bFS(comps,amt,unit){
+  var u=unit==="g"?"g":"lb";
+  var act=(comps||[]).filter(function(c){return c&&c.name&&String(c.name).trim();});
+  var s=act.map(function(c){return rnd(Number(c.pct)||0,2).toFixed(2)+"%% "+c.name;}).join(", ");
+  if(amt!==null&&amt!==undefined&&!isNaN(amt))s+=" (Batch: "+amt+" "+u+")";
+  return s;
+}
+function cEF(v){var s=v===null||v===undefined?"":String(v);if(/[",\n]/.test(s))s='"'+s.replace(/"/g,'""')+'"';return s;}
+function cStr(rows){return rows.map(function(r){return r.map(cEF).join(",");}).join("\r\n");}
+function cPrs(text){
+  var rows=[],row=[],field="",inQ=false,i=0,len=text.length;
+  function pFld(){row.push(field);field="";}
+  function pRow(){pFld();rows.push(row);row=[];}
+  while(i<len){var ch=text[i];
+    if(inQ){if(ch==='"'){if(text[i+1]==='"'){field+='"';i+=2;continue;}inQ=false;i++;continue;}field+=ch;i++;continue;}
+    else{if(ch==='"'){inQ=true;i++;continue;}if(ch===","){pFld();i++;continue;}if(ch==="\r"){i++;continue;}if(ch==="\n"){pRow();i++;continue;}field+=ch;i++;continue;}
+  }
+  if(field.length>0||row.length>0)pRow();
+  while(rows.length&&rows[rows.length-1].length===1&&rows[rows.length-1][0]==="")rows.pop();
+  return rows;
+}
+function cTO(text){
+  var rows=cPrs(text);if(!rows.length)return[];
+  var h=rows[0].map(function(x){return x.trim();});
+  return rows.slice(1).map(function(r){var o={};h.forEach(function(k,i){o[k]=r[i]!==undefined?r[i]:"";});return o;});
+}
+var PL={G_PER_LB:G,NUM_COMPONENTS:N,normalizeCode:nC,normalizeHex:nH,hexIsValid:hV,parseFloatOrNull:pF,convertAmount:cvt,round:rnd,computeRows:cR,buildFormulaSummary:bFS,csvStringify:cStr,csvParse:cPrs,csvToObjects:cTO};
+if(typeof module!=="undefined"&&module.exports)module.exports=PL;else g.PantoneLogic=PL;
+})(typeof window!=="undefined"?window:this);
+
+/* ============================================================
+   App state & storage
+   ============================================================ */
+var L = window.PantoneLogic;
+var SK_COLORS  = "pantoneFinder.colors";
+var SK_LIBRARY = "pantoneFinder.library";
+var SK_STOCK   = "pantoneFinder.stock";   // {name: grams}
+var SK_PRICES  = "pantoneFinder.prices";  // {baseInkName: dollarsPerLb}
+var SK_INKCOLORS = "pantoneFinder.inkColors"; // {baseInkName: hex} - user-picked dot colors
+
+var BASE_INK_HEX = {
+  "yellow":"#FFED00","warm red":"#F9423A","rubine red":"#CE0058","rhodamine red":"#E10098",
+  "purple":"#93328E","violet":"#5F259F","blue":"#0057B8","process blue":"#0085CA",
+  "reflex blue":"#001489","green":"#009B77","black":"#101820","white":"#FFFFFF",
+  "transparent white":"#FFFFFF","opaque white":"#FFFFFF","orange":"#FF6900",
+  "magenta":"#EC1E79","cyan":"#00AEEF","red":"#ED1C24","gray":"#9A9A9A",
+  "grey":"#9A9A9A","brown":"#6F4E37","gold":"#C9A227","silver":"#B9B9B9","pink":"#F2A0C8",
+};
+var PALETTE = ["#2B4C7E","#B23A2E","#3F7D58","#8E6C3A","#5F259F","#00AEEF"];
+function colorForName(name){
+  var k=(name||"").trim().toLowerCase();
+  if(state.inkColors && state.inkColors[k]) return state.inkColors[k];
+  if(BASE_INK_HEX[k])return BASE_INK_HEX[k];
+  var h=0;for(var i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))>>>0;
+  return PALETTE[h%PALETTE.length];
+}
+function setInkColor(name,hex){
+  var k=(name||"").trim().toLowerCase();
+  if(!k)return;
+  if(!hex){ delete state.inkColors[k]; }
+  else { state.inkColors[k]=hex; }
+  save(SK_INKCOLORS,state.inkColors);
+}
+
+function load(key){try{return JSON.parse(localStorage.getItem(key))||null;}catch(e){return null;}}
+function save(key,val){localStorage.setItem(key,JSON.stringify(val));}
+
+var state = {
+  colors:  load(SK_COLORS)  || {},
+  library: load(SK_LIBRARY) || [],
+  // stock keys are color names; values are grams (canonical unit)
+  stock:   load(SK_STOCK)   || {},
+  // prices keyed by base ink name; values are dollars per pound
+  prices:  load(SK_PRICES)  || {},
+  // user-picked dot colors for base inks, keyed by lowercase ink name
+  inkColors: load(SK_INKCOLORS) || {},
+};
+
+/* ---------- library helpers ---------- */
+function addToLibrary(name){
+  name=(name||"").trim();if(!name)return;
+  if(!state.library.some(function(n){return n.toLowerCase()===name.toLowerCase();})){
+    state.library.push(name);state.library.sort(function(a,b){return a.localeCompare(b);});
+    save(SK_LIBRARY,state.library);
+  }
+}
+function renameLibraryColor(oldN,newN){
+  oldN=oldN.trim();newN=newN.trim();if(!newN||oldN===newN)return;
+  state.library=state.library.map(function(n){return n===oldN?newN:n;});
+  state.library.sort(function(a,b){return a.localeCompare(b);});
+  Object.keys(state.colors).forEach(function(code){
+    state.colors[code].comps.forEach(function(c){if(c.name===oldN)c.name=newN;});
+  });
+  if(Object.prototype.hasOwnProperty.call(state.stock,oldN)){
+    state.stock[newN]=(state.stock[newN]||0)+(state.stock[oldN]||0);
+    delete state.stock[oldN];
+    save(SK_STOCK,state.stock);
+  }
+  if(Object.prototype.hasOwnProperty.call(state.prices,oldN)){
+    state.prices[newN]=state.prices[oldN];
+    delete state.prices[oldN];
+    save(SK_PRICES,state.prices);
+  }
+  var oldK=oldN.toLowerCase(), newK=newN.toLowerCase();
+  if(Object.prototype.hasOwnProperty.call(state.inkColors,oldK)){
+    state.inkColors[newK]=state.inkColors[oldK];
+    delete state.inkColors[oldK];
+    save(SK_INKCOLORS,state.inkColors);
+  }
+  save(SK_LIBRARY,state.library); save(SK_COLORS,state.colors);
+}
+function deleteLibraryColor(name){
+  state.library=state.library.filter(function(n){return n!==name;});
+  delete state.stock[name];
+  delete state.prices[name];
+  delete state.inkColors[name.toLowerCase()];
+  save(SK_LIBRARY,state.library); save(SK_STOCK,state.stock); save(SK_PRICES,state.prices); save(SK_INKCOLORS,state.inkColors);
+}
+function libraryUsageCount(name){
+  var c=0;Object.keys(state.colors).forEach(function(code){
+    state.colors[code].comps.forEach(function(cc){if(cc.name===name)c++;});
+  });return c;
+}
+
+/* ---------- stock helpers (all amounts in grams internally) ---------- */
+function stockG(name){return state.stock[name]||0;}
+function stockInUnit(name,unit){return L.round(L.convertAmount(stockG(name),"g",unit==="g"?"g":"lb"),4);}
+function setStockG(name,grams){state.stock[name]=Math.max(0,grams||0);save(SK_STOCK,state.stock);}
+function deductStockG(name,grams){setStockG(name,stockG(name)-grams);}
+
+/* ---------- price helpers ($/lb, keyed by base ink name) ---------- */
+function priceForInk(name){
+  var p=state.prices[name];
+  return (typeof p==="number" && !isNaN(p) && p>0) ? p : null;
+}
+function setPriceForInk(name,dollarsPerLb){
+  if(dollarsPerLb===null||dollarsPerLb===undefined||isNaN(dollarsPerLb)||dollarsPerLb<=0){
+    delete state.prices[name];
+  } else {
+    state.prices[name]=L.round(dollarsPerLb,4);
+  }
+  save(SK_PRICES,state.prices);
+}
+// Cost of a {inkName: grams} map. Only base inks with a price set contribute;
+// anything unpriced is called out separately so the estimate is never silently wrong.
+function costForGramsMap(gramsMap){
+  var total=0, pricedG=0, unpriced=[];
+  Object.keys(gramsMap||{}).forEach(function(name){
+    var g=gramsMap[name]||0;
+    if(g<=0.0001)return;
+    var price=priceForInk(name);
+    if(price===null){ unpriced.push(name); return; }
+    total += (g/L.G_PER_LB) * price;
+    pricedG += g;
+  });
+  return { total: L.round(total,4), unpriced: unpriced, hasAnyPrice: pricedG>0 };
+}
+
+/* ============================================================
+   Recycle engine — the MixMaster Jr "Recyclable Colors" equivalent
+   ============================================================
+   This is NOT a manual ratio tool. It works exactly like MixMaster:
+   every saved Pantone color that's sitting on the shelf with stock
+   has its OWN real formula (its own base-ink percentages). A color
+   is "recyclable" into a target batch if all of its own base inks
+   are also used in the target's formula. The max amount of it you
+   can pour in is capped by whichever shared base ink runs out first
+   — no strength/tint number is ever entered by hand, it falls
+   straight out of the two formulas' real percentages.
+
+   The workflow is interactive, one can at a time, exactly like the
+   MixMaster "Batches" screen:
+     1. buildBaseNeed()      — the fresh grams needed per base ink
+                                for a full batch, minus anything
+                                already covered by raw base-ink stock.
+     2. getRecyclableList()  — every compatible saved color on the
+                                shelf, with the max usable amount
+                                given CURRENT remaining need.
+     3. applyRecyclePick()   — user clicks one; it's poured in at its
+                                max usable amount, remaining need
+                                shrinks, and the recyclable list is
+                                recomputed (so colors that no longer
+                                fit drop out — matching MixMaster's
+                                list shrinking after each pick).
+     4. Clear resets need back to the untouched full batch.
+     5. Commit deducts the picked amounts from stock for real.
+   ============================================================ */
+
+// Pure: how much of one candidate color's formula can be poured into
+// a batch, given what's still needed of each base ink (in grams).
+// Returns null if the candidate isn't compatible (uses an ink the
+// target formula doesn't have at all).
+function maxUsableFromCandidate(candidateComps, need) {
+  var active = (candidateComps || []).filter(function (c) { return c && c.name && String(c.name).trim(); });
+  if (!active.length) return null;
+  var compatible = active.every(function (c) { return Object.prototype.hasOwnProperty.call(need, c.name); });
+  if (!compatible) return null;
+  var compPcts = {};
+  active.forEach(function (c) { compPcts[c.name] = (c.pct || 0) / 100; });
+  var maxFromRemaining = Infinity;
+  active.forEach(function (c) {
+    var denom = compPcts[c.name];
+    if (denom > 0) maxFromRemaining = Math.min(maxFromRemaining, (need[c.name] || 0) / denom);
+  });
+  if (maxFromRemaining === Infinity) return null;
+  return { compPcts: compPcts, maxUsableG: L.round(maxFromRemaining, 4) };
+}
+
+// Grams needed per base ink for a full fresh batch, after silently
+// pulling in any RAW base-ink stock you have on hand (separate from
+// the interactive Pantone-color recycling below).
+function buildBaseNeed(entry) {
+  var unit = entry.batchUnit || "lb";
+  var batchG = L.convertAmount(entry.batchAmount, unit, "g");
+  var active = entry.comps.filter(function (c) { return c.name && c.name.trim(); });
+  var need = {}, fromBaseStock = {};
+  active.forEach(function (c) {
+    var full = L.round(batchG * c.pct / 100, 4);
+    var avail = stockG(c.name);
+    var pull = L.round(Math.min(avail, full), 4);
+    if (pull > 0) fromBaseStock[c.name] = pull;
+    need[c.name] = L.round(full - pull, 4);
+  });
+  return { need: need, fromBaseStock: fromBaseStock, batchG: batchG, unit: unit };
+}
+
+// Every saved Pantone color on the shelf that's compatible with the
+// remaining need, with its max usable amount right now, sorted
+// biggest-first (this naturally puts a same-color leftover — which
+// can cover the whole remaining batch — at the top, just like
+// MixMaster's own recyclable list).
+function getRecyclableList(need, excludeCodes) {
+  var list = [];
+  Object.keys(state.colors).forEach(function (code) {
+    if (excludeCodes[code]) return;
+    var avail = stockG(code);
+    if (avail <= 0) return;
+    var e = state.colors[code];
+    var m = maxUsableFromCandidate(e.comps, need);
+    if (!m) return;
+    var canUse = L.round(Math.min(avail, m.maxUsableG), 4);
+    if (canUse <= 0.0001) return;
+    list.push({ code: code, hex: e.hex || "", canUseG: canUse, compPcts: m.compPcts });
+  });
+  list.sort(function (a, b) { return b.canUseG - a.canUseG; });
+  return list;
+}
+
+// Apply one pick: pour in `code` at its current max usable amount,
+// subtract its contribution from `need` in place, and return the
+// pick record (grams used + per-ink contribution) for the batch log.
+function applyRecyclePick(need, code) {
+  var e = state.colors[code];
+  var m = maxUsableFromCandidate(e.comps, need);
+  if (!m) return null;
+  var avail = stockG(code);
+  var canUse = L.round(Math.min(avail, m.maxUsableG), 4);
+  if (canUse <= 0.0001) return null;
+  var contrib = {};
+  Object.keys(m.compPcts).forEach(function (n) {
+    var g = L.round(canUse * m.compPcts[n], 4);
+    contrib[n] = g;
+    need[n] = L.round((need[n] || 0) - g, 4);
+  });
+  return { code: code, hex: e.hex || "", grams: canUse, contrib: contrib };
+}
+
+
+/* ============================================================
+   DOM helpers
+   ============================================================ */
+function $(id){ return document.getElementById(id); }
+function showToast(msg){
+  var t=$("toast"); t.textContent=msg; t.classList.add("show");
+  setTimeout(function(){t.classList.remove("show");},1800);
+}
+function el(tag,cls,text){
+  var e=document.createElement(tag);
+  if(cls)e.className=cls;
+  if(text!==undefined)e.textContent=text;
+  return e;
+}
+function dot(name){
+  var d=el("span","dot-swatch"); d.style.background=colorForName(name); return d;
+}
+
+/* ============================================================
+   Results list
+   ============================================================ */
+function renderResults(q){
+  var codes=Object.keys(state.colors).sort();
+  var fq=L.normalizeCode(q||"");
+  if(fq)codes=codes.filter(function(c){return c.indexOf(fq)!==-1;});
+  var list=$("resultsList"); list.innerHTML="";
+  $("resultsCount").textContent=codes.length+" color"+(codes.length===1?"":"s")+" in database";
+  $("emptyState").classList.toggle("hidden",Object.keys(state.colors).length>0);
+  codes.forEach(function(code){
+    var entry=state.colors[code];
+    var active=entry.comps.filter(function(c){return c.name&&c.name.trim();});
+    var li=el("li","result-card"); li.tabIndex=0;
+    // chip: solid hex if set, else segmented mix
+    var chip=el("div");
+    if(entry.hex){
+      chip.className="mix-chip";
+      var seg=el("span"); seg.style.background=entry.hex; seg.style.width="100%";
+      chip.appendChild(seg);
+    } else if(active.length){
+      chip.className="mix-chip";
+      active.forEach(function(c){
+        var seg=el("span"); seg.style.background=colorForName(c.name); seg.style.width=(c.pct||0)+"%"; chip.appendChild(seg);
+      });
+    } else { chip.className="mix-chip empty"; }
+    // stock badge
+    var hasStock=stockG(code)>0;
+    var txt=el("div","result-text");
+    var codeEl=el("div","result-code",code);
+    if(hasStock){var badge=el("span","stock-badge","\u25cf on shelf"); codeEl.appendChild(badge);}
+    var sumEl=el("div","result-summary");
+    sumEl.textContent=active.length?active.map(function(c){return c.name+" "+c.pct+"%%";}).join(" \u00b7 "):"No formula set";
+    txt.appendChild(codeEl); txt.appendChild(sumEl);
+    var chev=el("div","chevron","\u203a");
+    li.appendChild(chip); li.appendChild(txt); li.appendChild(chev);
+    li.addEventListener("click",function(){openDetail(code);});
+    list.appendChild(li);
+  });
+}
+
+/* ============================================================
+   Detail sheet
+   ============================================================ */
+function openDetail(code){
+  var entry=state.colors[code]; if(!entry)return;
+  state.currentCode=code;
+  $("detailHeaderCode").textContent=code;
+  var body=$("detailBody"); body.innerHTML="";
+
+  // swatch + header
+  var swatchRow=el("div","swatch-row");
+  var swatch=el("div");
+  if(entry.hex){swatch.className="swatch";swatch.style.background=entry.hex;}
+  else{swatch.className="swatch empty";swatch.textContent="no hex set";}
+  var meta=el("div");
+  var codeH=el("div","detail-code",code); meta.appendChild(codeH);
+  var batchSum=el("div","batch-summary");
+  batchSum.textContent=(entry.batchAmount!=null)?"Measuring by: "+entry.batchAmount+" "+(entry.batchUnit||"lb"):"Measuring by: (not set)";
+  meta.appendChild(batchSum);
+  swatchRow.appendChild(swatch); swatchRow.appendChild(meta);
+  body.appendChild(swatchRow);
+
+  // formula section
+  var result=L.computeRows(entry.comps,entry.batchAmount,entry.batchUnit);
+  body.appendChild(el("div","section-label","Mixing Formula"));
+  var bar=el("div");
+  if(result.rows.length){
+    bar.className="mix-bar";
+    result.rows.forEach(function(r){var seg=el("span");seg.style.background=colorForName(r.name);seg.style.width=r.pct+"%";bar.appendChild(seg);});
+  } else { bar.className="mix-bar empty"; }
+  body.appendChild(bar);
+
+  if(!result.rows.length){
+    body.appendChild(el("div","muted small","No formula set yet."));
+  } else {
+    var tbl=el("table","formula-table");
+    tbl.innerHTML="<tr><th>Color</th><th>%%</th><th>Weight</th><th>Cumulative</th></tr>";
+    result.rows.forEach(function(r){
+      var tr=document.createElement("tr");
+      var tdN=el("td"); tdN.appendChild(dot(r.name)); tdN.appendChild(document.createTextNode(r.name));
+      var tdP=el("td","mono",r.pct.toFixed(2)+"%%");
+      var tdW=el("td","mono",r.weight!==null?r.weight.toFixed(2)+" "+r.unit:"\u2014");
+      var tdC=el("td","mono"+(r.isLast&&result.unbalanced?" unbalanced":""),r.cumulative.toFixed(2)+"%%");
+      tr.appendChild(tdN);tr.appendChild(tdP);tr.appendChild(tdW);tr.appendChild(tdC);
+      tbl.appendChild(tr);
+    });
+    body.appendChild(tbl);
+
+    if(entry.batchAmount){
+      var batchG0=L.convertAmount(entry.batchAmount,entry.batchUnit||"lb","g");
+      var freshGramsMap={};
+      entry.comps.filter(function(c){return c.name&&c.name.trim();}).forEach(function(c){
+        freshGramsMap[c.name]=batchG0*c.pct/100;
+      });
+      var costInfo=costForGramsMap(freshGramsMap);
+      var costLine=el("div","cost-line");
+      if(costInfo.hasAnyPrice){
+        costLine.innerHTML="Estimated cost to mix fresh: <strong>$"+costInfo.total.toFixed(2)+"</strong>"
+          +(costInfo.unpriced.length?" <span class='muted small'>(no price set for "+costInfo.unpriced.join(", ")+" \u2014 estimate is partial)</span>":"");
+      } else {
+        costLine.innerHTML="<span class='muted small'>Set $/lb prices for your base inks under Menu \u2192 Manage Color Library to see cost estimates.</span>";
+      }
+      body.appendChild(costLine);
+    }
+  }
+
+  // ================================================================
+  //  RECYCLE INTO THIS BATCH (MixMaster-style interactive picker)
+  // ================================================================
+  if(result.rows.length && entry.batchAmount){
+    renderRecycleTool(body,code,entry,result);
+  }
+
+  // Notes
+  body.appendChild(el("div","section-label","Notes"));
+  var nb=el("div","notes-block"); nb.textContent=entry.notes&&entry.notes.trim()?entry.notes:"(none)"; body.appendChild(nb);
+
+  // Delete / Print
+  var btnRow=el("div","btn-row");
+  if(result.rows.length){
+    var printBtn=el("button","btn secondary","\U0001F5A8 Print Label");
+    printBtn.addEventListener("click",function(){ printLabel(code); });
+    btnRow.appendChild(printBtn);
+  }
+  var delBtn=el("button","btn danger","Delete");
+  delBtn.addEventListener("click",function(){deleteCurrentColor();});
+  btnRow.appendChild(delBtn); body.appendChild(btnRow);
+
+  openSheet("detailSheet");
+}
+
+/* ============================================================
+   Recycle Into This Batch — MixMaster-style interactive picker
+   ============================================================
+   Click a compatible leftover Pantone color on the shelf and it's
+   poured into the batch at the max amount its own formula allows,
+   remaining need shrinks, and the recyclable list is recalculated —
+   click more to keep layering it in, Clear to start over, and a
+   commit button to actually deduct the picks from stock.
+   ============================================================ */
+var recycleSession = null; // { code, need, picks: [{code,hex,grams,contrib}] }
+
+function renderRecycleTool(body,code,entry,result){
+  // fresh session every time this detail page is (re)opened
+  var b0=buildBaseNeed(entry);
+  recycleSession={code:code, need:b0.need, fromBaseStock:b0.fromBaseStock, batchG:b0.batchG, unit:b0.unit, picks:[]};
+
+  body.appendChild(el("div","section-label","Recycle Into This Batch"));
+  body.appendChild(el("div","hint","Click a compatible color you have leftover to pour it into this batch. The amount is calculated straight from that color's own formula \u2014 capped by whichever shared ink runs out first, just like MixMaster's Recycle option."));
+
+  var host=el("div"); host.className="subst-tool";
+  body.appendChild(host);
+
+  // Full-fresh-batch cost, as a fixed baseline to compare against (never changes
+  // as picks are made — it's "what this would cost if you bought everything new").
+  var fullFreshGramsMap={};
+  entry.comps.filter(function(c){return c.name&&c.name.trim();}).forEach(function(c){
+    fullFreshGramsMap[c.name]=recycleSession.batchG*c.pct/100;
+  });
+  var fullFreshCost=costForGramsMap(fullFreshGramsMap);
+
+  function render(){
+    host.innerHTML="";
+
+    // ---- Batch panel ----
+    var batchTbl=el("table","stock-plan-table");
+    batchTbl.innerHTML="<tr><th>Ink / Color</th><th>Weight</th></tr>";
+    var active=entry.comps.filter(function(c){return c.name&&c.name.trim();});
+    active.forEach(function(c){
+      var remaining=recycleSession.need[c.name]||0;
+      if(remaining>0.0001){
+        var tr=document.createElement("tr");
+        var tdN=el("td"); tdN.appendChild(dot(c.name)); tdN.appendChild(document.createTextNode(c.name));
+        var tdW=el("td","mono",L.round(L.convertAmount(remaining,"g",recycleSession.unit),3).toFixed(3)+" "+recycleSession.unit);
+        tr.appendChild(tdN);tr.appendChild(tdW); batchTbl.appendChild(tr);
+      }
+    });
+    recycleSession.picks.forEach(function(p){
+      var tr=document.createElement("tr");
+      tr.className="subst-changed";
+      var tdN=el("td");
+      var sdot=el("span","dot-swatch"); sdot.style.background=p.hex||colorForName(p.code);
+      tdN.appendChild(sdot); tdN.appendChild(document.createTextNode(p.code+" (recycled)"));
+      var tdW=el("td","mono",L.round(L.convertAmount(p.grams,"g",recycleSession.unit),3).toFixed(3)+" "+recycleSession.unit);
+      tr.appendChild(tdN);tr.appendChild(tdW); batchTbl.appendChild(tr);
+    });
+    host.appendChild(batchTbl);
+
+    if(recycleSession.picks.length){
+      var recycledG=recycleSession.picks.reduce(function(s,p){return s+p.grams;},0);
+      var pct=recycleSession.batchG>0?L.round(recycledG/recycleSession.batchG*100,1):0;
+      var summary=el("div","refo-summary");
+      summary.innerHTML="<span class='refo-saving'>&#9989; Recycled "+pct+"%</span> of this batch \u2014 "
+        +L.round(L.convertAmount(recycledG,"g",recycleSession.unit),3).toFixed(3)+" "+recycleSession.unit+" from leftover cans.";
+      host.appendChild(summary);
+    }
+
+    // ---- Cost estimate (updates live as picks are made) ----
+    if(fullFreshCost.hasAnyPrice){
+      var currentCost=costForGramsMap(recycleSession.need);
+      var costLine=el("div","cost-line");
+      if(recycleSession.picks.length){
+        var savedCost=L.round(fullFreshCost.total-currentCost.total,2);
+        costLine.innerHTML="Estimated cost from here: <strong>$"+currentCost.total.toFixed(2)+"</strong> "
+          +"<span class='muted small'>(full fresh batch would run $"+fullFreshCost.total.toFixed(2)+" \u2014 "
+          +(savedCost>0?"saving $"+savedCost.toFixed(2)+" by recycling":"no cost saved yet")+")</span>";
+      } else {
+        costLine.innerHTML="Estimated cost to mix fresh: <strong>$"+fullFreshCost.total.toFixed(2)+"</strong>";
+      }
+      host.appendChild(costLine);
+    }
+
+    // ---- Recyclable colors list ----
+    var excludeCodes={}; recycleSession.picks.forEach(function(p){excludeCodes[p.code]=true;});
+    var candidates=getRecyclableList(recycleSession.need,excludeCodes);
+
+    host.appendChild(el("div","refo-sub-label","Recyclable colors on your shelf ("+candidates.length+"):"));
+    if(!candidates.length){
+      host.appendChild(el("div","stock-empty-note",recycleSession.picks.length
+        ? "Nothing left on the shelf that fits what's still needed."
+        : "Nothing in stock is compatible with this formula yet. Log leftover Pantone colors under Menu \u2192 Manage Ink Stock."));
+    } else {
+      var listTbl=el("table","stock-plan-table");
+      listTbl.innerHTML="<tr><th>Can on Shelf</th><th>Max Usable</th><th></th></tr>";
+      candidates.forEach(function(cand){
+        var tr=document.createElement("tr");
+        tr.style.cursor="pointer";
+        var tdN=el("td");
+        var sdot=el("span","dot-swatch"); sdot.style.background=cand.hex||colorForName(cand.code);
+        tdN.appendChild(sdot); tdN.appendChild(document.createTextNode(cand.code));
+        var tdMax=el("td","mono from-stock",L.round(L.convertAmount(cand.canUseG,"g",recycleSession.unit),3).toFixed(3)+" "+recycleSession.unit);
+        var tdBtn=el("td");
+        var pickBtn=el("button","btn secondary"); pickBtn.style.padding="6px 12px"; pickBtn.textContent="Use";
+        pickBtn.addEventListener("click",function(e){
+          e.stopPropagation();
+          var pick=applyRecyclePick(recycleSession.need,cand.code);
+          if(pick)recycleSession.picks.push(pick);
+          render();
+        });
+        tdBtn.appendChild(pickBtn);
+        tr.appendChild(tdN);tr.appendChild(tdMax);tr.appendChild(tdBtn);
+        tr.addEventListener("click",function(){pickBtn.click();});
+        listTbl.appendChild(tr);
+      });
+      host.appendChild(listTbl);
+    }
+
+    // ---- Buttons ----
+    var btnRow2=el("div","btn-row"); btnRow2.style.marginTop="12px";
+    var clearBtn=el("button","btn secondary","Clear");
+    clearBtn.addEventListener("click",function(){
+      var b=buildBaseNeed(entry);
+      recycleSession={code:code, need:b.need, fromBaseStock:b.fromBaseStock, batchG:b.batchG, unit:b.unit, picks:[]};
+      render();
+    });
+    btnRow2.appendChild(clearBtn);
+
+    if(recycleSession.picks.length){
+      var commitBtn=el("button","btn primary","\u2193 Mix — deduct these from stock");
+      commitBtn.addEventListener("click",function(){
+        if(!confirm("Deduct the recycled amounts shown above from stock now? This can't be undone."))return;
+        var recycledG=recycleSession.picks.reduce(function(s,p){return s+p.grams;},0);
+        var pctDone=recycleSession.batchG>0?L.round(recycledG/recycleSession.batchG*100,1):0;
+        var labelOpts={ recycledNote: pctDone+"% ("+recycleSession.picks.map(function(p){return p.code;}).join(", ")+")" };
+        var cc=costForGramsMap(recycleSession.need);
+        if(cc.hasAnyPrice)labelOpts.cost=cc.total;
+        recycleSession.picks.forEach(function(p){ deductStockG(p.code,p.grams); });
+        showToast("Stock updated");
+        recycleSession=null;
+        openDetail(code);
+        if(confirm("Batch mixed. Print a label for it now?")) printLabel(code,labelOpts);
+      });
+      btnRow2.appendChild(commitBtn);
+    }
+    host.appendChild(btnRow2);
+  }
+
+  render();
+}
+
+/* ============================================================
+   Print Label
+   ============================================================ */
+function buildLabelHTML(code,opts){
+  opts=opts||{};
+  var entry=state.colors[code]; if(!entry)return "";
+  var result=L.computeRows(entry.comps,entry.batchAmount,entry.batchUnit);
+  var unit=entry.batchUnit||"lb";
+  var printedDate=new Date().toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"});
+
+  var html='<div class="print-label">';
+  html+='<div class="pl-head">';
+  html+='<div class="pl-eyebrow">Pantone</div>';
+  html+='<div class="pl-code">'+code+'</div>';
+  html+='<div class="pl-batch-note">'+(entry.batchAmount!=null?"Batch size: "+entry.batchAmount.toFixed(2)+" "+unit:"Batch size: (not set)")+'</div>';
+  html+='</div>';
+
+  html+='<div class="pl-formula">';
+  html+='<div class="pl-formula-head"><span>Formula</span><span class="pl-num pl-num-pct">%</span><span class="pl-num pl-num-weight">Weight</span></div>';
+  result.rows.forEach(function(r){
+    var w=(r.weight!==null)?r.weight.toFixed(2)+'<span class="pl-unit">'+r.unit+'</span>':'\u2014';
+    html+='<div class="pl-row">'
+        +'<span class="pl-comp">'+r.name+'</span>'
+        +'<span class="pl-pct">'+r.pct.toFixed(2)+'%</span>'
+        +'<span class="pl-weight">'+w+'</span>'
+        +'</div>';
+  });
+  if(opts.recycledNote){
+    html+='<div class="pl-row"><span class="pl-comp">Recycled in</span><span class="pl-weight pl-wide">'+opts.recycledNote+'</span></div>';
+  }
+  if(opts.cost!=null){
+    html+='<div class="pl-row"><span class="pl-comp">Est. cost</span><span class="pl-weight pl-wide">$'+opts.cost.toFixed(2)+'</span></div>';
+  }
+  html+='</div>';
+
+  html+='<div class="pl-footer">';
+  html+='<span class="pl-hex">'+(entry.hex||"")+'</span>';
+  html+='<span class="pl-printed">Printed '+printedDate+'</span>';
+  html+='</div>';
+
+  html+='</div>';
+  return html;
+}
+function printLabel(code,opts){
+  var entry=state.colors[code]; if(!entry)return;
+  var labelHtml=buildLabelHTML(code,opts);
+  if(!labelHtml)return;
+
+  // Self-contained stylesheet for the popup print document — inlined so it
+  // works with zero dependency on the main app's stylesheet or DOM. Kept in
+  // sync with the .print-label rules in the main <style> block above.
+  var css=''
+    +':root{--paper:#F6F3EC;--surface:#FFFFFF;--border:#E3DDCE;--ink:#17181A;--muted:#6B6558;'
+    +'--mono:ui-monospace,"SF Mono","Menlo","Consolas",monospace;'
+    +'--sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;}'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'@page{size:3.9in 2.4in;margin:0;}'
+    +'html,body{width:3.9in;height:2.4in;}'
+    +'body{font-family:var(--sans);}'
+    +'.print-label{width:3.9in;height:2.4in;padding:0.16in 0.22in 0.13in 0.22in;'
+      +'font-family:var(--sans);color:var(--ink);display:flex;flex-direction:column;'
+      +'justify-content:space-between;box-sizing:border-box;}'
+    +'.print-label .pl-head{display:flex;flex-direction:column;gap:1px;}'
+    +'.print-label .pl-eyebrow{font-size:6.5pt;letter-spacing:.14em;text-transform:uppercase;'
+      +'color:var(--muted);font-weight:600;}'
+    +'.print-label .pl-code{font-family:var(--mono);font-size:21pt;font-weight:800;'
+      +'letter-spacing:-.01em;line-height:1.05;}'
+    +'.print-label .pl-batch-note{font-size:8.5pt;color:var(--muted);margin-top:1px;}'
+    +'.print-label .pl-formula{display:flex;flex-direction:column;}'
+    +'.print-label .pl-formula-head{display:flex;align-items:baseline;gap:6px;font-size:6.5pt;'
+      +'letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;'
+      +'border-top:1px solid var(--border);padding-top:0.07in;margin-bottom:3px;}'
+    +'.print-label .pl-formula-head .pl-num{text-align:right;}'
+    +'.print-label .pl-formula-head span:first-child{flex:1;}'
+    +'.print-label .pl-formula-head .pl-num-pct{width:.62in;}'
+    +'.print-label .pl-formula-head .pl-num-weight{width:.85in;}'
+    +'.print-label .pl-row{display:flex;align-items:baseline;font-size:10.5pt;padding:1.5px 0;}'
+    +'.print-label .pl-row .pl-comp{flex:1;font-weight:500;}'
+    +'.print-label .pl-row .pl-pct{width:.62in;text-align:right;font-family:var(--mono);font-weight:700;}'
+    +'.print-label .pl-row .pl-weight{width:.85in;text-align:right;font-family:var(--mono);'
+      +'font-weight:600;color:var(--muted);}'
+    +'.print-label .pl-row .pl-weight.pl-wide{width:auto;flex:0 0 auto;margin-left:auto;}'
+    +'.print-label .pl-row .pl-weight .pl-unit{font-size:8pt;margin-left:2px;}'
+    +'.print-label .pl-footer{display:flex;justify-content:space-between;align-items:flex-end;'
+      +'border-top:1px solid var(--border);padding-top:0.06in;margin-top:0.05in;}'
+    +'.print-label .pl-hex,.print-label .pl-printed{font-family:var(--mono);font-size:7.5pt;'
+      +'color:#b3ada0;letter-spacing:.02em;}';
+
+  var w=window.open('','_blank','width=420,height=300');
+  if(!w){
+    alert('Your browser blocked the print window. Please allow pop-ups for this site and try again.');
+    return;
+  }
+  w.document.open();
+  w.document.write(
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+code+' label</title>'
+    +'<style>'+css+'</style></head><body>'+labelHtml+'</body></html>'
+  );
+  w.document.close();
+
+  var printed=false;
+  function doPrint(){
+    if(printed)return; printed=true;
+    w.focus();
+    w.print();
+  }
+  // Some browsers fire load reliably after document.write, others don't —
+  // cover both with a short fallback timer.
+  w.addEventListener('load',doPrint);
+  setTimeout(doPrint,300);
+  w.addEventListener('afterprint',function(){ w.close(); });
+}
+
+function deleteCurrentColor(){
+  var code=state.currentCode; if(!code)return;
+  if(!confirm("Delete "+code+"? This can't be undone."))return;
+  delete state.colors[code]; save(SK_COLORS,state.colors);
+  closeSheet("detailSheet"); renderResults($("searchInput").value);
+  showToast("Deleted "+code);
+}
+
+function openSheet(id){$(id).classList.add("open");}
+function closeSheet(id){$(id).classList.remove("open");}
+
+/* ============================================================
+   Combo (searchable dropdown) for formula rows
+   ============================================================ */
+function attachCombo(inp,lst,onChange){
+  function renderList(){
+    var q=inp.value.trim().toLowerCase();
+    var m=state.library.filter(function(n){return n.toLowerCase().indexOf(q)!==-1;});
+    lst.innerHTML="";
+    if(!m.length&&!q){lst.classList.add("hidden");return;}
+    m.slice(0,40).forEach(function(name){
+      var item=el("div","combo-item",name);
+      item.addEventListener("mousedown",function(e){e.preventDefault();inp.value=name;lst.classList.add("hidden");onChange();});
+      lst.appendChild(item);
+    });
+    var exact=state.library.some(function(n){return n.toLowerCase()===q;});
+    if(q&&!exact){
+      var ai=el("div","combo-item add-new",'Use "'+inp.value.trim()+'" (new color)');
+      ai.addEventListener("mousedown",function(e){e.preventDefault();lst.classList.add("hidden");onChange();});
+      lst.appendChild(ai);
+    }
+    lst.classList.toggle("hidden",m.length===0&&!(q&&!exact));
+  }
+  inp.addEventListener("focus",renderList);
+  inp.addEventListener("input",function(){renderList();onChange();});
+  inp.addEventListener("blur",function(){setTimeout(function(){lst.classList.add("hidden");},120);});
+}
+
+/* ============================================================
+   New / Edit form
+   ============================================================ */
+var formRowEls=[];
+function buildFormulaRowsUI(){
+  var wrap=$("formulaRows"); wrap.innerHTML=""; formRowEls=[];
+  for(var i=0;i<L.NUM_COMPONENTS;i++){
+    var row=el("div","formula-row");
+    var top=el("div","formula-row-top");
+    var cw=el("div","combo-wrap");
+    var ni=document.createElement("input");
+    ni.type="text"; ni.placeholder="Color "+(i+1); ni.autocapitalize="words"; ni.autocomplete="off"; ni.spellcheck=false;
+    var cl=el("div","combo-list hidden");
+    cw.appendChild(ni); cw.appendChild(cl);
+    var pi=document.createElement("input");
+    pi.type="number"; pi.inputMode="decimal"; pi.placeholder="%%"; pi.step="0.01"; pi.min="0"; pi.max="100";
+    var wi=el("div","row-weight empty","");
+    top.appendChild(cw); top.appendChild(pi); top.appendChild(wi);
+    var meta=el("div","formula-row-meta");
+    var cumEl=el("span","cum",""); meta.appendChild(cumEl);
+    row.appendChild(top); row.appendChild(meta); wrap.appendChild(row);
+    attachCombo(ni,cl,recomputeFormPreview);
+    pi.addEventListener("input",recomputeFormPreview);
+    formRowEls.push({nameInput:ni,pctInput:pi,cumEl:cumEl,weightEl:wi});
+  }
+}
+
+function recomputeFormPreview(){
+  var comps=formRowEls.map(function(r){return{name:r.nameInput.value.trim(),pct:L.parseFloatOrNull(r.pctInput.value)};});
+  var amt=L.parseFloatOrNull($("fAmount").value);
+  var unit=$("fUnitToggle").querySelector("button.active").dataset.unit;
+  var result=L.computeRows(comps,amt,unit);
+  var idx=0;
+  formRowEls.forEach(function(r){
+    var n=r.nameInput.value.trim(), pr=r.pctInput.value.trim();
+    if(!n&&!pr){r.cumEl.textContent="";r.weightEl.textContent="";r.weightEl.classList.add("empty");return;}
+    var m=result.rows[idx]; idx++;
+    if(!m){r.cumEl.textContent="";r.weightEl.textContent="";r.weightEl.classList.add("empty");return;}
+    r.cumEl.textContent="cumulative: "+m.cumulative.toFixed(2)+"%%";
+    r.cumEl.classList.toggle("unbalanced",m.isLast&&result.unbalanced);
+    if(m.weight!==null){r.weightEl.textContent=m.weight.toFixed(2)+" "+m.unit;r.weightEl.classList.remove("empty");}
+    else{r.weightEl.textContent="\u2014";r.weightEl.classList.add("empty");}
+  });
+}
+
+var lastUnit="lb";
+function setupUnitToggle(){
+  var tog=$("fUnitToggle");
+  tog.querySelectorAll("button").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var nu=btn.dataset.unit; if(nu===lastUnit)return;
+      var cur=L.parseFloatOrNull($("fAmount").value);
+      if(cur!==null){$("fAmount").value=L.round(L.convertAmount(cur,lastUnit,nu),3);}
+      lastUnit=nu;
+      tog.querySelectorAll("button").forEach(function(b){b.classList.toggle("active",b===btn);});
+      recomputeFormPreview();
+    });
+  });
+}
+
+function openForm(code,prefill){
+  state.editingCode=code||null;
+  $("formHeaderTitle").textContent=code?"Edit Color":"New Color";
+  $("fCode").value=code||prefill||""; $("fCode").disabled=!!code;
+  $("fHex").value=""; $("fAmount").value="1"; $("fNotes").value="";
+  lastUnit="lb";
+  $("fUnitToggle").querySelectorAll("button").forEach(function(b){b.classList.toggle("active",b.dataset.unit==="lb");});
+  buildFormulaRowsUI();
+  if(code&&state.colors[code]){
+    var e=state.colors[code];
+    $("fHex").value=e.hex||""; $("fNotes").value=e.notes||"";
+    if(e.batchAmount!=null)$("fAmount").value=e.batchAmount;
+    if(e.batchUnit){lastUnit=e.batchUnit;$("fUnitToggle").querySelectorAll("button").forEach(function(b){b.classList.toggle("active",b.dataset.unit===e.batchUnit);});}
+    e.comps.forEach(function(c,i){if(formRowEls[i]){formRowEls[i].nameInput.value=c.name||"";formRowEls[i].pctInput.value=c.pct!=null?c.pct:"";}});
+  }
+  recomputeFormPreview();
+  openSheet("formSheet");
+  setTimeout(function(){(code?formRowEls[0].nameInput:$("fCode")).focus();},260);
+}
+
+function saveForm(){
+  var code=L.normalizeCode($("fCode").value);
+  if(!code){alert("Pantone code can't be empty.");return;}
+  var hexRaw=$("fHex").value;
+  if(!L.hexIsValid(hexRaw)){alert("Hex should look like #1B4B8A.");return;}
+  var hex=L.normalizeHex(hexRaw);
+  var comps=[]; var activeCount=0;
+  for(var i=0;i<formRowEls.length;i++){
+    var n=formRowEls[i].nameInput.value.trim(), pr=formRowEls[i].pctInput.value.trim();
+    if(!n&&!pr){comps.push({name:"",pct:null});continue;}
+    if(!n||!pr){alert("Row "+(i+1)+" needs both name and %% (or leave both blank).");return;}
+    var p=L.parseFloatOrNull(pr); if(p===null){alert('"'+pr+'" isn\'t a valid number.');return;}
+    comps.push({name:n,pct:p}); activeCount++;
+  }
+  if(activeCount===1){alert("Use at least 2 colors, or leave all blank.");return;}
+  var amtR=$("fAmount").value.trim(), ba=L.parseFloatOrNull(amtR);
+  if(amtR&&ba===null){alert('"'+amtR+'" isn\'t a valid amount.');return;}
+  var bu=$("fUnitToggle").querySelector("button.active").dataset.unit;
+  var notes=$("fNotes").value.trim();
+  if(!state.editingCode&&state.colors[code]){alert(code+" already exists. Select it and use Edit instead.");return;}
+  comps.forEach(function(c){if(c.name)addToLibrary(c.name);});
+  state.colors[code]={hex:hex,notes:notes,comps:comps,batchAmount:ba,batchUnit:bu,formula:L.buildFormulaSummary(comps,ba,bu),updatedAt:new Date().toISOString()};
+  save(SK_COLORS,state.colors);
+  closeSheet("formSheet"); $("searchInput").value=""; renderResults(""); openDetail(code); showToast("Saved "+code);
+}
+
+/* ============================================================
+   Ink Stock modal
+   ============================================================ */
+var stockUnit="lb";
+
+var stockPendingInputs=[]; // {key, input} for every rendered row — used to force-commit on Done
+
+function renderStockList(query){
+  var wrap=$("stockList"); wrap.innerHTML="";
+  stockPendingInputs=[];
+  var q=(query||"").trim().toLowerCase();
+
+  var baseItems=state.library.filter(function(n){return !q||n.toLowerCase().indexOf(q)!==-1;});
+  var colorCodes=Object.keys(state.colors).sort().filter(function(code){return !q||code.toLowerCase().indexOf(q)!==-1;});
+
+  if(!state.library.length && !Object.keys(state.colors).length){
+    $("stockEmptyNote").classList.remove("hidden"); return;
+  }
+  $("stockEmptyNote").classList.add("hidden");
+
+  if(q && !baseItems.length && !colorCodes.length){
+    wrap.appendChild(el("div","muted small","No inks or colors match \u201c"+query+"\u201d."));
+    return;
+  }
+
+  // Group header helper
+  function addGroupHeader(txt){var h=el("div","stock-group-header",txt);wrap.appendChild(h);}
+
+  if(baseItems.length){
+    addGroupHeader("Base Inks");
+    baseItems.forEach(function(name){renderStockRow(wrap,name,name,null,false);});
+  }
+  if(colorCodes.length){
+    addGroupHeader("Saved Pantone Colors (leftover cans)");
+    colorCodes.forEach(function(code){
+      renderStockRow(wrap,code,code,state.colors[code].hex||"",true);
+    });
+  }
+}
+
+function renderStockRow(wrap,key,label,hex,isColor){
+  var row=el("div","stock-row");
+  var nameEl=el("div","stock-name");
+  var d=el("span","dot-swatch"); d.style.background=hex||colorForName(label);
+  nameEl.appendChild(d);
+  var lbl=el("span",null,label);
+  if(isColor)lbl.style.fontFamily="var(--mono)";
+  nameEl.appendChild(lbl);
+
+  var controls=el("div","stock-controls");
+  var ai=document.createElement("input");
+  ai.type="number"; ai.inputMode="decimal"; ai.step="0.001"; ai.min="0"; ai.placeholder="0";
+  ai.className="form-input";
+  var cg=stockG(key);
+  if(cg>0)ai.value=stockInUnit(key,stockUnit);
+
+  function commit(){
+    var v=L.parseFloatOrNull(ai.value);
+    var g=v!==null?L.convertAmount(v,stockUnit,"g"):0;
+    setStockG(key,g);
+  }
+  // Save on every keystroke AND on blur/change — don't rely on blur firing
+  // reliably before a nearby button (like "Done") registers its click,
+  // which is what was silently dropping typed-in stock amounts before.
+  ai.addEventListener("input",commit);
+  ai.addEventListener("change",commit);
+  stockPendingInputs.push({key:key,input:ai,commit:commit});
+
+  var ug=el("div","stock-unit-toggle");
+  ["lb","g"].forEach(function(u){
+    var b=el("button",null,u); b.type="button";
+    if(u===stockUnit)b.classList.add("active");
+    b.addEventListener("click",function(){
+      if(u===stockUnit)return;
+      var cur=L.parseFloatOrNull(ai.value);
+      stockUnit=u;
+      if(cur!==null)ai.value=L.round(L.convertAmount(cur,u==="g"?"lb":"g",u),3);
+      ug.querySelectorAll("button").forEach(function(b2){b2.classList.toggle("active",b2===b);});
+      renderStockList($("stockSearchInput")?$("stockSearchInput").value:"");
+    });
+    ug.appendChild(b);
+  });
+
+  controls.appendChild(ai); controls.appendChild(ug);
+  row.appendChild(nameEl); row.appendChild(controls); wrap.appendChild(row);
+}
+
+/* ============================================================
+   Library modal
+   ============================================================ */
+function renderLibraryList(){
+  var wrap=$("libraryList"); wrap.innerHTML="";
+  if(!state.library.length){wrap.appendChild(el("div","muted small","No colors in your library yet."));return;}
+  wrap.appendChild(el("div","hint","Set a $/lb price for each base ink to get automatic batch cost estimates on any formula that uses it."));
+  state.library.forEach(function(name){
+    var row=el("div","lib-row");
+    var ne=el("div","lib-name");
+    var picker=document.createElement("input");
+    picker.type="color"; picker.className="lib-color-picker";
+    picker.value=colorForName(name);
+    picker.title="Change dot color for "+name;
+    picker.addEventListener("input",function(){
+      setInkColor(name,picker.value);
+      renderResults($("searchInput").value); // refresh dots shown elsewhere
+    });
+    ne.appendChild(picker); ne.appendChild(document.createTextNode(name));
+
+    var priceField=el("div","lib-price-field");
+    priceField.appendChild(el("span","pfx","$"));
+    var pi=document.createElement("input");
+    pi.type="number"; pi.inputMode="decimal"; pi.step="0.01"; pi.min="0"; pi.placeholder="0.00";
+    var curPrice=priceForInk(name);
+    if(curPrice!==null)pi.value=curPrice;
+    function commitPrice(){ setPriceForInk(name, L.parseFloatOrNull(pi.value)); }
+    pi.addEventListener("input",commitPrice);
+    pi.addEventListener("change",commitPrice);
+    priceField.appendChild(pi);
+    priceField.appendChild(el("span","pfx","/lb"));
+
+    var acts=el("div","lib-actions");
+    var rn=el("button","icon-sm-btn","\u270e");
+    rn.addEventListener("click",function(){
+      var nn=prompt('Rename "'+name+'" to:',name); if(!nn)return; nn=nn.trim();
+      var ex=state.library.some(function(n){return n.toLowerCase()===nn.toLowerCase()&&n!==name;});
+      if(ex){alert('"'+nn+'" already in library.');return;}
+      renameLibraryColor(name,nn); renderLibraryList(); renderResults($("searchInput").value);
+    });
+    var dl=el("button","icon-sm-btn danger","\u2715");
+    dl.addEventListener("click",function(){
+      var u=libraryUsageCount(name);
+      var msg='Delete "'+name+'"?'+(u?"\n\nUsed in "+u+" formula row(s) \u2014 those keep the text, just won't be in the dropdown.":"");
+      if(confirm(msg)){deleteLibraryColor(name);renderLibraryList();}
+    });
+    acts.appendChild(rn); acts.appendChild(dl);
+    row.appendChild(ne); row.appendChild(priceField); row.appendChild(acts); wrap.appendChild(row);
+  });
+}
+
+/* ============================================================
+   CSV export / import
+   ============================================================ */
+var CSV_COLS=["code","hex","notes","comp1_name","comp1_pct","comp2_name","comp2_pct","comp3_name","comp3_pct","comp4_name","comp4_pct","batch_amount","batch_unit","formula"];
+
+function exportCsv(){
+  var rows=[CSV_COLS];
+  Object.keys(state.colors).sort().forEach(function(code){
+    var e=state.colors[code];
+    var row=[code,e.hex||"",e.notes||""];
+    for(var i=0;i<4;i++){var c=e.comps[i]||{name:"",pct:null};row.push(c.name||"");row.push(c.pct!=null?c.pct:"");}
+    row.push(e.batchAmount!=null?e.batchAmount:""); row.push(e.batchUnit||"lb"); row.push(e.formula||"");
+    rows.push(row);
+  });
+  var csv=L.csvStringify(rows);
+  var blob=new Blob([csv],{type:"text/csv"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a"); a.href=url; a.download="pantone_formulas.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+  showToast("Exported "+Object.keys(state.colors).length+" colors");
+}
+
+function importCsvText(text){
+  var objs=L.csvToObjects(text); var added=0,updated=0,skipped=0;
+  objs.forEach(function(row){
+    var code=L.normalizeCode(row.code||""); if(!code){skipped++;return;}
+    var comps=[];
+    for(var i=1;i<=4;i++){var n=(row["comp"+i+"_name"]||"").trim();var p=L.parseFloatOrNull(row["comp"+i+"_pct"]);comps.push({name:n,pct:n?p:null});}
+    var ba=L.parseFloatOrNull(row.batch_amount); var bu=(row.batch_unit||"lb").trim()||"lb";
+    var exists=!!state.colors[code];
+    state.colors[code]={hex:L.normalizeHex(row.hex||""),notes:row.notes||"",comps:comps,batchAmount:ba,batchUnit:bu,formula:row.formula||L.buildFormulaSummary(comps,ba,bu),updatedAt:new Date().toISOString()};
+    comps.forEach(function(c){if(c.name)addToLibrary(c.name);}); exists?updated++:added++;
+  });
+  save(SK_COLORS,state.colors); renderResults($("searchInput").value);
+  showToast("Added "+added+", updated "+updated+", skipped "+skipped);
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+function init(){
+  renderResults("");
+  var globalBatchUnit="lb";
+  $("globalBatchUnitToggle").querySelectorAll("button").forEach(function(b){
+    b.addEventListener("click",function(){
+      globalBatchUnit=b.dataset.unit;
+      $("globalBatchUnitToggle").querySelectorAll("button").forEach(function(b2){b2.classList.toggle("active",b2===b);});
+    });
+  });
+  $("globalBatchApplyBtn").addEventListener("click",function(){
+    var val=L.parseFloatOrNull($("globalBatchAmount").value);
+    if(val===null||val<=0){alert("Enter a batch amount first.");return;}
+    var count=Object.keys(state.colors).length;
+    if(!count){alert("No colors saved yet.");return;}
+    if(!confirm("Set every saved color's batch size to "+val+" "+globalBatchUnit+"?\n\nThis overwrites the batch size on all "+count+" color(s). This can't be undone (other than editing them back individually).")) return;
+    Object.keys(state.colors).forEach(function(code){
+      var e=state.colors[code];
+      e.batchAmount=val; e.batchUnit=globalBatchUnit;
+      e.formula=L.buildFormulaSummary(e.comps,e.batchAmount,e.batchUnit);
+      e.updatedAt=new Date().toISOString();
+    });
+    save(SK_COLORS,state.colors);
+    showToast("Batch size updated for "+count+" color(s)");
+    renderResults($("searchInput").value);
+  });
+  $("searchInput").addEventListener("input",function(){
+    renderResults($("searchInput").value);
+    var exact=L.normalizeCode($("searchInput").value);
+    if(exact&&state.colors[exact])openDetail(exact);
+  });
+  $("searchInput").addEventListener("keydown",function(e){
+    if(e.key!=="Enter")return;
+    var code=L.normalizeCode($("searchInput").value); if(!code)return;
+    if(state.colors[code])openDetail(code);
+    else if(confirm('"'+code+'" isn\'t in your database yet.\n\nAdd it now?'))openForm(null,code);
+  });
+  $("addBtn").addEventListener("click",function(){openForm(null,"");});
+  $("fabBtn").addEventListener("click",function(){openForm(null,"");});
+  $("detailCloseBtn").addEventListener("click",function(){closeSheet("detailSheet");});
+  $("detailEditBtn").addEventListener("click",function(){closeSheet("detailSheet");openForm(state.currentCode);});
+  $("formCancelBtn").addEventListener("click",function(){closeSheet("formSheet");});
+  $("formSaveBtn").addEventListener("click",saveForm);
+  $("fAmount").addEventListener("input",recomputeFormPreview);
+  setupUnitToggle();
+  $("menuBtn").addEventListener("click",function(){$("menuOverlay").classList.remove("hidden");});
+  $("menuCloseBtn").addEventListener("click",function(){$("menuOverlay").classList.add("hidden");});
+  $("menuLibraryBtn").addEventListener("click",function(){$("menuOverlay").classList.add("hidden");renderLibraryList();$("libraryOverlay").classList.remove("hidden");});
+  $("menuStockBtn").addEventListener("click",function(){$("menuOverlay").classList.add("hidden");$("stockSearchInput").value="";renderStockList("");$("stockOverlay").classList.remove("hidden");});
+  $("stockSearchInput").addEventListener("input",function(){renderStockList($("stockSearchInput").value);});
+  $("menuExportBtn").addEventListener("click",function(){$("menuOverlay").classList.add("hidden");exportCsv();});
+  $("menuImportBtn").addEventListener("click",function(){$("menuOverlay").classList.add("hidden");$("importFileInput").click();});
+  $("menuAboutBtn").addEventListener("click",function(){$("menuOverlay").classList.add("hidden");alert("Pantone Finder\n\nOffline ink mixing + reformulation tool.\nData lives in this browser's local storage.\nUse Export CSV regularly to back up your formulas.");});
+  $("menuResetBtn").addEventListener("click",function(){
+    var count = Object.keys(state.colors).length;
+    var msg = "Reset all data?\n\nThis permanently deletes everything stored in this browser:\n"
+      +"\u2022 "+count+" color formula(s)\n"
+      +"\u2022 your base ink library\n"
+      +"\u2022 all logged stock/leftover amounts\n"
+      +"\u2022 all ink prices\n\n"
+      +"This cannot be undone. Export a CSV backup first if you're not sure.";
+    if(!confirm(msg)) return;
+    if(!confirm("Really sure? This is your last chance to cancel.")) return;
+    [SK_COLORS, SK_LIBRARY, SK_STOCK, SK_PRICES].forEach(function(k){ localStorage.removeItem(k); });
+    location.reload();
+  });
+  $("libraryCloseBtn").addEventListener("click",function(){$("libraryOverlay").classList.add("hidden");});
+  $("libAddBtn").addEventListener("click",function(){
+    var n=$("libNewName").value.trim(); if(!n)return;
+    if(state.library.some(function(x){return x.toLowerCase()===n.toLowerCase();})){alert('"'+n+'" already in library.');return;}
+    addToLibrary(n); $("libNewName").value=""; renderLibraryList();
+  });
+  $("stockCloseBtn").addEventListener("click",function(){
+    // Force-commit every stock input's current value now, rather than relying
+    // on the browser's blur/change timing (this was the bug — a nearby button
+    // click doesn't always fire "change" on the field you were just typing in
+    // before its own click handler runs, especially on mobile).
+    if(document.activeElement)document.activeElement.blur();
+    stockPendingInputs.forEach(function(p){p.commit();});
+    $("stockOverlay").classList.add("hidden");
+    renderResults($("searchInput").value);
+  });
+  $("importFileInput").addEventListener("change",function(e){
+    var file=e.target.files[0]; if(!file)return;
+    var reader=new FileReader(); reader.onload=function(){importCsvText(reader.result);};
+    reader.readAsText(file); e.target.value="";
+  });
+  ["libraryOverlay","menuOverlay","stockOverlay"].forEach(function(id){
+    $(id).addEventListener("click",function(e){if(e.target===$(id))$(id).classList.add("hidden");});
+  });
+}
+
+if(typeof window!=="undefined"&&window.document){
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);
+  else init();
+}
+
+// expose for testing
+if(typeof module!=="undefined")module.exports={maxUsableFromCandidate:maxUsableFromCandidate,buildBaseNeed:buildBaseNeed,getRecyclableList:getRecyclableList,applyRecyclePick:applyRecyclePick,state:state,setStockG:setStockG,stockG:stockG,PantoneLogic:PantoneLogic};
+</script>
+
+</body>
+</html>
